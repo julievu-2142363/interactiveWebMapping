@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Washington COVID-19 Data Map</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+        }
+        #map { 
+            position: absolute;
+            top: 0; 
+            bottom: 0; 
+            width: 100%; 
+        }
+
+        .map-overlay {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 3px;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            top: 10px;
+            left: 10px;
+            width: 250px;
+        }
+
+        #legend {
+            bottom: 30px;
+            left: 10px;
+            padding: 10px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            line-height: 18px;
+        }
+
+        .legend-key {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+            border-radius: 20%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="map-overlay" id="info">
+        <h2>Washington COVID-19 Data</h2>
+        <p>Hover over a county!</p>
+    </div>
+    <div class="map-overlay" id="legend"></div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoianVsaWV2dSIsImEiOiJjbTFvb2xxNWEwMDR3MnFvbmdqd2NrNHI1In0.E-O7pFKamdM9m0XSJuarHQ';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            center: [-120.7401, 47.7511],
+            zoom: 6
+        });
+
+        async function geojsonFetch() {
+            let response = await fetch('assets/wa-covid-data-102521.geojson');
+            let data = await response.json();
+
+            map.on('load', () => {
+                map.addSource('covid-data', {
+                    type: 'geojson',
+                    data: data
+                });
+
+                map.addLayer({
+                    id: 'covid-layer',
+                    type: 'fill',
+                    source: 'covid-data',
+                    paint: {
+                        'fill-color': [
+                            'step',
+                            ['get', 'casePer10k'],
+                            '#f2f0f7', 50,
+                            '#cbc9e2', 100,
+                            '#9e9ac8', 200,
+                            '#756bb1', 500,
+                            '#54278f'
+                        ],
+                        'fill-outline-color': '#BBBBBB',
+                        'fill-opacity': 0.8
+                    }
+                });
+
+                const legend = document.getElementById('legend');
+                const layers = ['0-49', '50-99', '100-199', '200-499', '500+'];
+                const colors = ['#f2f0f7', '#cbc9e2', '#9e9ac8', '#756bb1', '#54278f'];
+
+                legend.innerHTML = '<b>Cases per 10k</b><br><br>';
+                layers.forEach((layer, i) => {
+                    const color = colors[i];
+                    const item = document.createElement('div');
+                    const key = document.createElement('span');
+                    key.className = 'legend-key';
+                    key.style.backgroundColor = color;
+
+                    const value = document.createElement('span');
+                    value.innerHTML = `${layer}`;
+                    item.appendChild(key);
+                    item.appendChild(value);
+                    legend.appendChild(item);
+                });
+
+                map.on('mousemove', 'covid-layer', (e) => {
+                    const props = e.features[0].properties;
+                    document.getElementById('info').innerHTML = `
+                        <h3>${props.name} County</h3>
+                        <p>Cases per 10k: ${props.casePer10k}</p>
+                        <p>Deaths per 10k: ${props.deathPer10k}</p>
+                        <p>Fully Vaccinated per 10k: ${props.fullyVaxPer10k}</p>
+                    `;
+                });
+
+                map.on('mouseleave', 'covid-layer', () => {
+                    document.getElementById('info').innerHTML = '<h2>Washington COVID-19 Data</h2><p>Hover over a county</p>';
+                });
+            });
+        }
+        geojsonFetch();
+    </script>
+</body>
+
+</html>
